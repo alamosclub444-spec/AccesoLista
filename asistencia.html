@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control de Asistencia - Alamo’s Club</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111 url("LOGO.PNG") no-repeat center center fixed;
+      background-size: 300px;
+      background-blend-mode: overlay;
+      color: white;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+
+    .login, .panel {
+      background: rgba(0,0,0,0.85);
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(255,255,255,0.1);
+      width: 95%;
+      max-width: 480px;
+    }
+
+    h2 {
+      color: #f1c40f;
+      margin-bottom: 10px;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    button {
+      background: #e91e63;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    button:hover { background: #ff4081; }
+    .hidden { display: none; }
+
+    #output {
+      margin-top: 15px;
+      background: #222;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: left;
+      max-height: 400px;
+      overflow-y: auto;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* NUEVO: Tabla invisible para nombres y botones */
+    .nombre {
+      display: table;
+      width: 100%;
+      border-bottom: 1px solid #333;
+      padding: 6px 0;
+      table-layout: fixed; /* Mantiene ancho de celdas uniforme */
+    }
+
+    .nombre span, .nombre button {
+      display: table-cell;
+      vertical-align: middle;
+    }
+
+    .nombre span {
+      font-size: 15px;
+      padding-left: 5px;
+      word-break: break-word;
+    }
+
+    .nombre button {
+      width: 120px;        /* Ancho fijo */
+      padding: 5px 10px;   /* Más compacto */
+      font-size: 13px;
+      border-radius: 6px;
+      text-align: center;
+      flex-shrink: 0;
+      background: #27ae60;
+      color: white;
+      cursor: pointer;
+    }
+
+    .nombre button:disabled {
+      background: gray;
+      cursor: not-allowed;
+    }
+
+    /* Barra de progreso */
+    .progress-container {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+      position: relative;
+    }
+
+    .progress-icon {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 20px;
+      background: #333;
+      border-radius: 10px;
+      margin: 0 5px; 
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #f1c40f, #e91e63);
+      transition: width 0.5s ease;
+      border-radius: 10px 0 0 10px;
+    }
+
+    @media (max-width: 480px) {
+      .panel {
+        width: 95%;
+        padding: 20px;
+      }
+      #output {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Pantalla de inicio (login) -->
+  <div class="login" id="login">
+    <h2>🔒 Acceso restringido</h2>
+    <p>Solo administradores de Alamo’s Club.</p>
+    <input type="password" id="password" placeholder="Contraseña">
+    <button onclick="checkPassword()">Ingresar</button>
+  </div>
+
+  <!-- Panel principal -->
+  <div class="panel hidden" id="panel">
+    <h2>📋 Control de Asistencia</h2>
+
+    <!-- Barra de progreso -->
+    <div class="progress-container">
+      <img src="LOGO.PNG" alt="Logo" class="progress-icon">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <img src="FLAG.PNG" alt="Meta" class="progress-icon">
+    </div>
+
+    <input type="text" id="buscar" placeholder="Buscar nombre...">
+    <div id="output"></div>
+  </div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDLW12w5ZznypXJYMrTNouttdX0vrG6Bzg",
+      authDomain: "alamos-club-d1847.firebaseapp.com",
+      projectId: "alamos-club-d1847",
+      storageBucket: "alamos-club-d1847.firebasestorage.app",
+      messagingSenderId: "666754924136",
+      appId: "1:666754924136:web:03b63136a94e98515d45dd",
+      measurementId: "G-MNFMT9QLBN"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let invitados = [];
+
+    function checkPassword() {
+      const pass = document.getElementById("password").value;
+      if (pass === "Alamos3A.2") {
+        document.getElementById("login").classList.add("hidden");
+        document.getElementById("panel").classList.remove("hidden");
+        cargarLista();
+      } else {
+        alert("❌ Contraseña incorrecta");
+      }
+    }
+
+    async function cargarLista() {
+      const output = document.getElementById("output");
+      const buscar = document.getElementById("buscar");
+
+      const snapshot = await db.collection("invitados").orderBy("nombre").get();
+      invitados = [];
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        invitados.push({ id: doc.id, nombre: data.nombre, asistio: data.asistio || false });
+      });
+
+      function mostrarLista(filtro = "") {
+        output.innerHTML = "";
+        const filtrados = invitados.filter(inv => inv.nombre.toLowerCase().includes(filtro.toLowerCase()));
+
+        if (filtrados.length === 0) {
+          output.innerHTML = "<p>No hay coincidencias.</p>";
+          return;
+        }
+
+        filtrados.forEach(inv => {
+          const div = document.createElement("div");
+          div.className = "nombre";
+
+          const span = document.createElement("span");
+          span.textContent = inv.nombre;
+
+          const btn = document.createElement("button");
+          btn.textContent = inv.asistio ? "✅ Asistió" : "Marcar asistencia";
+          btn.disabled = inv.asistio;
+
+          btn.onclick = async () => {
+            await db.collection("invitados").doc(inv.id).update({ asistio: true });
+            inv.asistio = true;
+            btn.textContent = "✅ Asistió";
+            btn.disabled = true;
+            actualizarProgreso();
+          };
+
+          div.appendChild(span);
+          div.appendChild(btn);
+          output.appendChild(div);
+        });
+      }
+
+      function actualizarProgreso() {
+        const total = invitados.length;
+        const asistieron = invitados.filter(i => i.asistio).length;
+        const porcentaje = (asistieron / total) * 100;
+        document.getElementById("progressFill").style.width = porcentaje + "%";
+      }
+
+      mostrarLista();
+      actualizarProgreso();
+      buscar.addEventListener("input", (e) => mostrarLista(e.target.value));
+    }
+  </script>
+</body>
+</html>
