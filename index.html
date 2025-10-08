@@ -151,7 +151,7 @@
 
   <!-- Pantalla de inicio (login) -->
   <div class="login" id="login">
-    <h2>🔒 Acceso restringido</h2>
+    <h2>🔒 Acceso restringido 🔒</h2>
     <p>Solo administradores de Alamo’s Club.</p>
     <input type="password" id="password" placeholder="Contraseña">
     <button onclick="checkPassword()">Ingresar</button>
@@ -196,7 +196,7 @@
 
     function checkPassword() {
       const pass = document.getElementById("password").value;
-      if (pass === "Alamos3A.2") {
+      if (pass === "123456") {
         document.getElementById("login").classList.add("hidden");
         document.getElementById("panel").classList.remove("hidden");
         cargarLista();
